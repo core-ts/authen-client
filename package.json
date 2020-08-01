@@ -1,0 +1,27 @@
+{
+  "name": "authentication-component",
+  "version": "0.0.5",
+  "description": "Authentication Component",
+  "main": "./lib/index.js",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build:lib": "tsc",
+    "clean:lib": "rimraf lib"
+  },
+  "devDependencies": {
+    "tslint": "5.10.0",
+    "typescript": "^3.8.3"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com/common-ts/authentication-component"
+  },
+  "keywords": [
+    "authentication",
+    "authentication component",
+    "authentication-component"
+  ]
+}
