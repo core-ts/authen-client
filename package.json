@@ -1,6 +1,6 @@
 {
   "name": "authentication-component",
-  "version": "0.0.5",
+  "version": "0.0.8",
   "description": "Authentication Component",
   "main": "./lib/index.js",
   "types": "./src/index.ts",

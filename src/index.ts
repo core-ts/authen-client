@@ -1,17 +1,20 @@
+export interface ErrorMessage {
+  field: string;
+  code: string;
+  param?: string|number|Date;
+  message?: string;
+}
 export interface AuthInfo {
   step?: number;
   username: string;
   password: string;
   passcode?: string;
-  senderType?: string;
 }
-
 export interface AuthResult {
   status: AuthStatus;
   user?: UserAccount;
   message?: string;
 }
-
 export interface UserAccount {
   userId?: string;
   username?: string;
@@ -35,7 +38,6 @@ export enum Gender {
   Female = 'F',
   Unknown = 'U',
 }
-
 export interface Privilege {
   id?: string;
   name: string;
@@ -45,7 +47,6 @@ export interface Privilege {
   sequence?: number;
   children?: Privilege[];
 }
-
 export enum AuthStatus {
   Success = 0,
   SuccessAndReactivated = 1,
@@ -60,23 +61,65 @@ export enum AuthStatus {
   SystemError = 10,
 }
 
-export interface AuthenticationService {
-  authenticate(user: AuthInfo): Promise<AuthResult>;
+export interface Authenticator<T extends AuthInfo> {
+  authenticate(user: T): Promise<AuthResult>;
 }
 
 interface Headers {
   [key: string]: any;
 }
-
 export interface HttpRequest {
-  post<T>(url: string, obj: any, options?: { headers?: Headers; }): Promise<T>;
+  get<T>(url: string, options?: {headers?: Headers}): Promise<T>;
+  delete<T>(url: string, options?: {headers?: Headers}): Promise<T>;
+  post<T>(url: string, obj: any, options?: {headers?: Headers}): Promise<T>;
+  put<T>(url: string, obj: any, options?: {headers?: Headers}): Promise<T>;
+  patch<T>(url: string, obj: any, options?: {headers?: Headers}): Promise<T>;
 }
 
-export class AuthenticationWebClient implements AuthenticationService {
-  constructor(protected http: HttpRequest, protected url: string) {
+export interface Configuration {
+  id: string;
+  link: string;
+  clientId: string;
+  scope: string;
+  redirectUri: string;
+  accessTokenLink: string;
+  clientSecret: string;
+}
+export interface OAuth2Info {
+  id: string;
+  code: string;
+  redirectUri: string;
+  invitationMail?: string;
+  link?: boolean;
+}
+export interface OAuth2Service {
+  configurations(): Promise<Configuration[]>;
+  configuration(sourceType: string): Promise<Configuration>;
+  authenticate(auth: OAuth2Info): Promise<AuthResult>;
+}
+export class OAuth2WebClient implements OAuth2Service {
+  constructor(protected http: HttpRequest, protected url1: string, protected url2: string) {
+    this.authenticate = this.authenticate.bind(this);
+    this.configurations = this.configurations.bind(this);
+    this.configuration = this.configuration.bind(this);
   }
+  authenticate(auth: OAuth2Info): Promise<AuthResult> {
+    return this.http.post<AuthResult>(this.url1, auth);
+  }
+  configurations(): Promise<Configuration[]> {
+    return this.http.get<Configuration[]>(this.url2);
+  }
+  configuration(sourceType: string): Promise<Configuration> {
+    const url = this.url2  + '/' + sourceType;
+    return this.http.get<Configuration>(url);
+  }
+}
 
-  async authenticate(user: AuthInfo): Promise<AuthResult> {
+export class AuthenticationWebClient<T extends AuthInfo> implements Authenticator<T> {
+  constructor(protected http: HttpRequest, protected url: string) {
+    this.authenticate = this.authenticate.bind(this);
+  }
+  async authenticate(user: T): Promise<AuthResult> {
     const result = await this.http.post<AuthResult>(this.url, user);
     const obj = result.user;
     if (obj) {
@@ -114,7 +157,9 @@ export interface Encoder {
   encode(v: string): string;
   decode(v: string): string;
 }
-
+export function isEmpty(str: string): boolean {
+  return (!str || str === '');
+}
 export function store(user: UserAccount, userStorage: UserStorage, formsStorage: FormsStorage): void {
   if (!user) {
     userStorage.setUser(null);
@@ -129,7 +174,7 @@ export function store(user: UserAccount, userStorage: UserStorage, formsStorage:
   }
 }
 
-export function initFromCookie(key: string, user: AuthInfo, cookie: Cookie, encoder: Encoder): boolean {
+export function initFromCookie<T extends AuthInfo>(key: string, user: T, cookie: Cookie, encoder: Encoder): boolean {
   const str = cookie.get(key);
   if (str && str.length > 0) {
     try {
@@ -152,8 +197,13 @@ export function addMinutes(date: Date, number: number): Date {
   newDate.setMinutes(newDate.getMinutes() + number);
   return newDate;
 }
-
-export function handleCookie(key: string, user: AuthInfo, remember: boolean, cookie: Cookie, expiresMinutes: number, encoder: Encoder) {
+export function dayDiff(start: Date, end: Date): number {
+  if (!start || !end) {
+    return null;
+  }
+  return Math.floor(Math.abs((start.getTime() - end.getTime()) / 86400000));
+}
+export function handleCookie<T extends AuthInfo>(key: string, user: T, remember: boolean, cookie: Cookie, expiresMinutes: number, encoder: Encoder) {
   if (remember === true) {
     const data: any = {
       username: user.username,
@@ -167,21 +217,44 @@ export function handleCookie(key: string, user: AuthInfo, remember: boolean, coo
     cookie.delete(key);
   }
 }
-export function validate(user: AuthInfo, r: ResourceService, show: (m: string, field?: string) => void): boolean {
-  if (user.username === '') {
-    const msg = r.format(r.value('error_required'), r.value('username'));
-    show(msg, 'username');
-    return false;
-  } else if (user.password === '') {
-    const msg = r.format(r.value('error_required'), r.value('password'));
-    show(msg, 'password');
-    return false;
-  } else if (user.step && user.passcode === '') {
-    const msg = r.format(r.value('error_required'), r.value('passcode'));
-    show(msg, 'passcode');
-    return false;
+export function createError(code: string, field: string, message: string): ErrorMessage {
+  return { code, field, message };
+}
+export function validate<T extends AuthInfo>(user: T, r: ResourceService, showError?: (m: string, field?: string) => void): boolean|ErrorMessage[] {
+  if (showError) {
+    if (isEmpty(user.username)) {
+      const msg = r.format(r.value('error_required'), r.value('username'));
+      showError(msg, 'username');
+      return false;
+    } else if (isEmpty(user.password)) {
+      const msg = r.format(r.value('error_required'), r.value('password'));
+      showError(msg, 'password');
+      return false;
+    } else if (user.step && isEmpty(user.passcode)) {
+      const msg = r.format(r.value('error_required'), r.value('passcode'));
+      showError(msg, 'passcode');
+      return false;
+    }
+    return true;
+  } else {
+    const errs: ErrorMessage[] = [];
+    if (isEmpty(user.username)) {
+      const msg = r.format(r.value('error_required'), r.value('username'));
+      const e = createError('required', 'username', msg);
+      errs.push(e);
+    }
+    if (isEmpty(user.password)) {
+      const msg = r.format(r.value('error_required'), r.value('password'));
+      const e = createError('required', 'password', msg);
+      errs.push(e);
+    }
+    if (user.step && isEmpty(user.passcode)) {
+      const msg = r.format(r.value('error_required'), r.value('passcode'));
+      const e = createError('required', 'passcode', msg);
+      errs.push(e);
+    }
+    return errs;
   }
-  return true;
 }
 
 export function getMessage(status: AuthStatus, r: ResourceService): string {
@@ -205,11 +278,11 @@ export function getMessage(status: AuthStatus, r: ResourceService): string {
   }
 }
 
-export interface ErrorMessage {
+export interface Message {
   message: string;
   title?: string;
 }
-export function getErrorMessage(err: any, r: ResourceService): ErrorMessage {
+export function getErrorMessage(err: any, r: ResourceService): Message {
   const title = r.value('error');
   let msg = r.value('error_internal');
   if (err) {
@@ -220,7 +293,7 @@ export function getErrorMessage(err: any, r: ResourceService): ErrorMessage {
       msg = r.value('error_service_unavailable');
     }
   }
-  const m: ErrorMessage = {
+  const m: Message = {
     title,
     message: msg
   };
