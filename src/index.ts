@@ -1,3 +1,15 @@
+export interface Status {
+  fail?: number|string;
+  success?: number|string;
+  success_and_reactivated?: number|string;
+  password_expired?: number|string;
+  two_factor_required?: number|string;
+  wrong_password?: number|string;
+  locked?: number|string;
+  suspended?: number|string;
+  disabled?: number|string;
+  error?: number|string;
+}
 export interface ErrorMessage {
   field: string;
   code: string;
@@ -9,16 +21,20 @@ export interface AuthInfo {
   username: string;
   password: string;
   passcode?: string;
+  ip?: string;
+  device?: string;
 }
 export interface AuthResult {
-  status: AuthStatus;
+  status: number|string;
   user?: UserAccount;
   message?: string;
 }
 export interface UserAccount {
-  userId?: string;
+  id?: string;
   username?: string;
   contact?: string;
+  email?: string;
+  phone?: string;
   displayName?: string;
   passwordExpiredTime?: Date;
   token?: string;
@@ -30,13 +46,8 @@ export interface UserAccount {
   language?: string;
   dateFormat?: string;
   timeFormat?: string;
-  gender?: Gender;
-  imageUrl?: string;
-}
-export enum Gender {
-  Male = 'M',
-  Female = 'F',
-  Unknown = 'U',
+  gender?: string;
+  imageURL?: string;
 }
 export interface Privilege {
   id?: string;
@@ -47,24 +58,9 @@ export interface Privilege {
   sequence?: number;
   children?: Privilege[];
 }
-export enum AuthStatus {
-  Success = 0,
-  SuccessAndReactivated = 1,
-  TwoFactorRequired,
-  Fail = 3,
-  WrongPassword = 4,
-  PasswordExpired = 5,
-  AccessTimeLocked = 6,
-  Locked = 7,
-  Suspended = 8,
-  Disabled = 9,
-  SystemError = 10,
-}
-
 export interface Authenticator<T extends AuthInfo> {
   authenticate(user: T): Promise<AuthResult>;
 }
-
 interface Headers {
   [key: string]: any;
 }
@@ -94,10 +90,10 @@ export interface OAuth2Info {
 }
 export interface OAuth2Service {
   configurations(): Promise<Configuration[]>;
-  configuration(sourceType: string): Promise<Configuration>;
+  configuration(id: string): Promise<Configuration>;
   authenticate(auth: OAuth2Info): Promise<AuthResult>;
 }
-export class OAuth2WebClient implements OAuth2Service {
+export class OAuth2Client implements OAuth2Service {
   constructor(protected http: HttpRequest, protected url1: string, protected url2: string) {
     this.authenticate = this.authenticate.bind(this);
     this.configurations = this.configurations.bind(this);
@@ -109,13 +105,13 @@ export class OAuth2WebClient implements OAuth2Service {
   configurations(): Promise<Configuration[]> {
     return this.http.get<Configuration[]>(this.url2);
   }
-  configuration(sourceType: string): Promise<Configuration> {
-    const url = this.url2  + '/' + sourceType;
+  configuration(id: string): Promise<Configuration> {
+    const url = this.url2  + '/' + id;
     return this.http.get<Configuration>(url);
   }
 }
 
-export class AuthenticationWebClient<T extends AuthInfo> implements Authenticator<T> {
+export class AuthenticationClient<T extends AuthInfo> implements Authenticator<T> {
   constructor(protected http: HttpRequest, protected url: string) {
     this.authenticate = this.authenticate.bind(this);
   }
@@ -136,22 +132,14 @@ export class AuthenticationWebClient<T extends AuthInfo> implements Authenticato
   }
 }
 
-export interface UserStorage {
-  setUser(user: UserAccount): void;
-}
-export interface FormsStorage {
-  setForms(privileges: Privilege[]): void;
-}
-
 export interface Cookie {
   set(key: string, data: string, expires: number|Date): void;
   get(key: string): string;
   delete(key: string): void;
 }
 export interface ResourceService {
-  resource(): any;
   value(key: string, param?: any): string;
-  format(...args: any[]): string;
+  format(f: string, ...args: any[]): string;
 }
 export interface Encoder {
   encode(v: string): string;
@@ -160,25 +148,42 @@ export interface Encoder {
 export function isEmpty(str: string): boolean {
   return (!str || str === '');
 }
-export function store(user: UserAccount, userStorage: UserStorage, formsStorage: FormsStorage): void {
+export function store(user: UserAccount, setUser?: (u: UserAccount) => void, setPrivileges?: (p: Privilege[]) => void): void {
   if (!user) {
-    userStorage.setUser(null);
-    formsStorage.setForms(null);
+    if (setUser) {
+      setUser(null);
+    }
+    if (setPrivileges) {
+      setPrivileges(null);
+    }
   } else {
-    userStorage.setUser(user);
+    if (setUser) {
+      setUser(user);
+    }
     const forms = user.hasOwnProperty('privileges') ? user.privileges : null;
-    if (forms !== null && forms.length !== 0) {
-      formsStorage.setForms(null);
-      formsStorage.setForms(forms);
+    if (forms !== null && forms.length !== 0 && setPrivileges) {
+      setPrivileges(null);
+      setPrivileges(forms);
     }
   }
 }
 
-export function initFromCookie<T extends AuthInfo>(key: string, user: T, cookie: Cookie, encoder: Encoder): boolean {
-  const str = cookie.get(key);
+export function initFromCookie<T extends AuthInfo>(key: string, user: T, cookie: Cookie|((k: string) => string), encoder: Encoder|((v2: string) => string)): boolean {
+  let str: string;
+  if (typeof cookie === 'function') {
+    str = cookie(key);
+  } else {
+    str = cookie.get(key);
+  }
   if (str && str.length > 0) {
     try {
-      const tmp: any = JSON.parse(encoder.decode(str));
+      let s2: string;
+      if (typeof encoder === 'function') {
+        s2 = encoder(str);
+      } else {
+        encoder.decode(str);
+      }
+      const tmp: any = JSON.parse(s2);
       user.username = tmp.username;
       user.password = tmp.password;
       if (!tmp.remember) {
@@ -203,7 +208,7 @@ export function dayDiff(start: Date, end: Date): number {
   }
   return Math.floor(Math.abs((start.getTime() - end.getTime()) / 86400000));
 }
-export function handleCookie<T extends AuthInfo>(key: string, user: T, remember: boolean, cookie: Cookie, expiresMinutes: number, encoder: Encoder) {
+export function handleCookie<T extends AuthInfo>(key: string, user: T, remember: boolean, cookie: Cookie, expiresMinutes: number, encoder: Encoder|((v2: string) => string)) {
   if (remember === true) {
     const data: any = {
       username: user.username,
@@ -211,7 +216,12 @@ export function handleCookie<T extends AuthInfo>(key: string, user: T, remember:
       remember
     };
     const expiredDate = addMinutes(new Date(), expiresMinutes);
-    const v = encoder.encode(JSON.stringify(data));
+    let v: string;
+    if (typeof encoder === 'function') {
+      v = encoder(JSON.stringify(data));
+    } else {
+      v = encoder.encode(JSON.stringify(data));
+    }
     cookie.set(key, v, expiredDate);
   } else {
     cookie.delete(key);
@@ -223,79 +233,60 @@ export function createError(code: string, field: string, message: string): Error
 export function validate<T extends AuthInfo>(user: T, r: ResourceService, showError?: (m: string, field?: string) => void): boolean|ErrorMessage[] {
   if (showError) {
     if (isEmpty(user.username)) {
-      const msg = r.format(r.value('error_required'), r.value('username'));
-      showError(msg, 'username');
+      const m1 = r.format(r.value('error_required'), r.value('username'));
+      showError(m1, 'username');
       return false;
     } else if (isEmpty(user.password)) {
-      const msg = r.format(r.value('error_required'), r.value('password'));
-      showError(msg, 'password');
+      const m1 = r.format(r.value('error_required'), r.value('password'));
+      showError(m1, 'password');
       return false;
     } else if (user.step && isEmpty(user.passcode)) {
-      const msg = r.format(r.value('error_required'), r.value('passcode'));
-      showError(msg, 'passcode');
+      const m1 = r.format(r.value('error_required'), r.value('passcode'));
+      showError(m1, 'passcode');
       return false;
     }
     return true;
   } else {
     const errs: ErrorMessage[] = [];
     if (isEmpty(user.username)) {
-      const msg = r.format(r.value('error_required'), r.value('username'));
-      const e = createError('required', 'username', msg);
+      const m1 = r.format(r.value('error_required'), r.value('username'));
+      const e = createError('required', 'username', m1);
       errs.push(e);
     }
     if (isEmpty(user.password)) {
-      const msg = r.format(r.value('error_required'), r.value('password'));
-      const e = createError('required', 'password', msg);
+      const m1 = r.format(r.value('error_required'), r.value('password'));
+      const e = createError('required', 'password', m1);
       errs.push(e);
     }
     if (user.step && isEmpty(user.passcode)) {
-      const msg = r.format(r.value('error_required'), r.value('passcode'));
-      const e = createError('required', 'passcode', msg);
+      const m1 = r.format(r.value('error_required'), r.value('passcode'));
+      const e = createError('required', 'passcode', m1);
       errs.push(e);
     }
     return errs;
   }
 }
-
-export function getMessage(status: AuthStatus, r: ResourceService): string {
-  switch (status) {
-    case AuthStatus.Fail:
-      return r.value('fail_authentication');
-    case AuthStatus.WrongPassword:
-      return r.value('fail_wrong_password');
-    case AuthStatus.AccessTimeLocked:
-      return r.value('fail_access_time_locked');
-    case AuthStatus.PasswordExpired:
-      return r.value('fail_expired_password');
-    case AuthStatus.Suspended:
-      return r.value('fail_suspended_account');
-    case AuthStatus.Locked:
-      return r.value('fail_locked_account');
-    case AuthStatus.Disabled:
-      return r.value('fail_disabled_account');
-    default:
-      return r.value('fail_authentication');
+export interface MessageMap {
+  [key: string]: string;
+}
+export function getMessage(status: number|string, r: ResourceService|((k0: string, p0?: any) => string), map?: MessageMap): string {
+  if (!map) {
+    return msg(r, 'fail_authentication');
   }
-}
-
-export interface Message {
-  message: string;
-  title?: string;
-}
-export function getErrorMessage(err: any, r: ResourceService): Message {
-  const title = r.value('error');
-  let msg = r.value('error_internal');
-  if (err) {
-    const status = err.status;
-    if (status === 500) {
-      msg = r.value('error_internal');
-    } else if (status === 503) {
-      msg = r.value('error_service_unavailable');
+  const k = '' + status;
+  const g = map[k];
+  if (g) {
+    const v = msg(r, 'fail_authentication');
+    if (v) {
+      return v;
     }
   }
-  const m: Message = {
-    title,
-    message: msg
-  };
-  return m;
+  return msg(r, 'fail_authentication');
+}
+function msg(r: ResourceService|((k0: string, p0?: any) => string), k0: string): string {
+  if (typeof r === 'function') {
+    return r(k0);
+  } else {
+    return r.value(k0);
+  }
 }
