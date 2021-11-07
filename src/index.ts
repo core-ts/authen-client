@@ -145,10 +145,10 @@ export interface Encoder {
   encode(v: string): string;
   decode(v: string): string;
 }
-export function isEmpty(str: string): boolean {
+export function isEmpty(str?: string): boolean {
   return (!str || str === '');
 }
-export function store(user: UserAccount, setUser?: (u: UserAccount) => void, setPrivileges?: (p: Privilege[]) => void): void {
+export function store(user: UserAccount, setUser?: (u: UserAccount|null|undefined) => void, setPrivileges?: (p: Privilege[]|null|undefined) => void): void {
   if (!user) {
     if (setUser) {
       setUser(null);
@@ -161,7 +161,7 @@ export function store(user: UserAccount, setUser?: (u: UserAccount) => void, set
       setUser(user);
     }
     const forms = user.hasOwnProperty('privileges') ? user.privileges : null;
-    if (forms !== null && forms.length !== 0 && setPrivileges) {
+    if (forms && forms.length !== 0 && setPrivileges) {
       setPrivileges(null);
       setPrivileges(forms);
     }
@@ -177,19 +177,21 @@ export function initFromCookie<T extends AuthInfo>(key: string, user: T, cookie:
   }
   if (str && str.length > 0) {
     try {
-      let s2: string;
+      let s2: string|undefined;
       if (typeof encoder === 'function') {
         s2 = encoder(str);
       } else {
         encoder.decode(str);
       }
-      const tmp: any = JSON.parse(s2);
-      user.username = tmp.username;
-      user.password = tmp.password;
-      if (!tmp.remember) {
-        return false;
-      } else {
-        return true;
+      if (s2) {
+        const tmp: any = JSON.parse(s2);
+        user.username = tmp.username;
+        user.password = tmp.password;
+        if (!tmp.remember) {
+          return false;
+        } else {
+          return true;
+        }
       }
     } catch (error) {
       return true;
@@ -202,9 +204,9 @@ export function addMinutes(date: Date, number: number): Date {
   newDate.setMinutes(newDate.getMinutes() + number);
   return newDate;
 }
-export function dayDiff(start: Date, end: Date): number {
+export function dayDiff(start: Date, end: Date): number|undefined {
   if (!start || !end) {
-    return null;
+    return undefined;
   }
   return Math.floor(Math.abs((start.getTime() - end.getTime()) / 86400000));
 }
