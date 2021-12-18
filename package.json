@@ -1,6 +1,6 @@
 {
   "name": "authentication-component",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Authentication Component",
   "main": "./lib/index.js",
   "types": "./src/index.ts",
@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com/common-ts/authentication-component"
+    "url": "git@github.com/core-ts/authentication-component"
   },
   "keywords": [
     "authenticator",

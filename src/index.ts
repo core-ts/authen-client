@@ -204,7 +204,7 @@ export function addMinutes(date: Date, number: number): Date {
   newDate.setMinutes(newDate.getMinutes() + number);
   return newDate;
 }
-export function dayDiff(start: Date, end: Date): number|undefined {
+export function dayDiff(start?: Date, end?: Date): number|undefined {
   if (!start || !end) {
     return undefined;
   }
