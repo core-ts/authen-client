@@ -66,10 +66,7 @@ interface Headers {
 }
 export interface HttpRequest {
   get<T>(url: string, options?: {headers?: Headers}): Promise<T>;
-  delete<T>(url: string, options?: {headers?: Headers}): Promise<T>;
   post<T>(url: string, obj: any, options?: {headers?: Headers}): Promise<T>;
-  put<T>(url: string, obj: any, options?: {headers?: Headers}): Promise<T>;
-  patch<T>(url: string, obj: any, options?: {headers?: Headers}): Promise<T>;
 }
 
 export interface Configuration {
@@ -115,20 +112,21 @@ export class AuthenticationClient<T extends AuthInfo> implements Authenticator<T
   constructor(protected http: HttpRequest, protected url: string) {
     this.authenticate = this.authenticate.bind(this);
   }
-  async authenticate(user: T): Promise<AuthResult> {
-    const result = await this.http.post<AuthResult>(this.url, user);
-    const obj = result.user;
-    if (obj) {
-      try {
-        if (obj.passwordExpiredTime) {
-          obj.passwordExpiredTime = new Date(obj.passwordExpiredTime);
-        }
-        if (obj.tokenExpiredTime) {
-          obj.tokenExpiredTime = new Date(obj.tokenExpiredTime);
-        }
-      } catch (err) {}
-    }
-    return result;
+  authenticate(user: T): Promise<AuthResult> {
+    return this.http.post<AuthResult>(this.url, user).then(result => {
+      const obj = result.user;
+      if (obj) {
+        try {
+          if (obj.passwordExpiredTime) {
+            obj.passwordExpiredTime = new Date(obj.passwordExpiredTime);
+          }
+          if (obj.tokenExpiredTime) {
+            obj.tokenExpiredTime = new Date(obj.tokenExpiredTime);
+          }
+        } catch (err) {}
+      }
+      return result;  
+    });
   }
 }
 
@@ -148,7 +146,7 @@ export interface Encoder {
 export function isEmpty(str?: string): boolean {
   return (!str || str === '');
 }
-export function store(user: UserAccount, setUser?: (u: UserAccount|null|undefined) => void, setPrivileges?: (p: Privilege[]|null|undefined) => void): void {
+export function store(user?: UserAccount|null, setUser?: (u: UserAccount|null|undefined) => void, setPrivileges?: (p: Privilege[]|null|undefined) => void): void {
   if (!user) {
     if (setUser) {
       setUser(null);
@@ -271,24 +269,17 @@ export function validate<T extends AuthInfo>(user: T, r: ResourceService, showEr
 export interface MessageMap {
   [key: string]: string;
 }
-export function getMessage(status: number|string, r: ResourceService|((k0: string, p0?: any) => string), map?: MessageMap): string {
+export function getMessage(status: number|string, r: MessageMap, map?: MessageMap): string {
   if (!map) {
-    return msg(r, 'fail_authentication');
+    return r['fail_authentication'];
   }
   const k = '' + status;
   const g = map[k];
   if (g) {
-    const v = msg(r, 'fail_authentication');
+    const v = r[g];
     if (v) {
       return v;
     }
   }
-  return msg(r, 'fail_authentication');
-}
-function msg(r: ResourceService|((k0: string, p0?: any) => string), k0: string): string {
-  if (typeof r === 'function') {
-    return r(k0);
-  } else {
-    return r.value(k0);
-  }
+  return r['fail_authentication'];
 }
