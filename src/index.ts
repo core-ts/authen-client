@@ -24,11 +24,14 @@ export interface AuthInfo {
   ip?: string;
   device?: string;
 }
+export type Login = AuthInfo;
+export type User = AuthInfo;
 export interface AuthResult {
   status: number|string;
   user?: UserAccount;
   message?: string;
 }
+export type Result = AuthResult;
 export interface UserAccount {
   id?: string;
   username?: string;
@@ -58,9 +61,10 @@ export interface Privilege {
   sequence?: number;
   children?: Privilege[];
 }
-export interface Authenticator<T extends AuthInfo> {
+export interface AuthenService<T extends AuthInfo> {
   authenticate(user: T): Promise<AuthResult>;
 }
+export type AuthenticationService<T extends AuthInfo> = AuthenService<T>;
 interface Headers {
   [key: string]: any;
 }
@@ -108,9 +112,17 @@ export class OAuth2Client implements OAuth2Service {
   }
 }
 
-export class AuthenticationClient<T extends AuthInfo> implements Authenticator<T> {
+export class AuthenClient<T extends AuthInfo> implements AuthenService<T> {
   constructor(protected http: HttpRequest, protected url: string) {
     this.authenticate = this.authenticate.bind(this);
+    this.login = this.login.bind(this);
+    this.signin = this.signin.bind(this);
+  }
+  login(user: T): Promise<AuthResult> {
+    return this.authenticate(user);
+  }
+  signin(user: T): Promise<AuthResult> {
+    return this.authenticate(user);
   }
   authenticate(user: T): Promise<AuthResult> {
     return this.http.post<AuthResult>(this.url, user).then(result => {
@@ -125,11 +137,15 @@ export class AuthenticationClient<T extends AuthInfo> implements Authenticator<T
           }
         } catch (err) {}
       }
-      return result;  
+      return result;
     });
   }
 }
-
+export const AuthenticationClient = AuthenClient;
+export const LoginClient = AuthenClient;
+export const SigninClient = AuthenClient;
+export const SignInClient = AuthenClient;
+export const Authenticator = AuthenClient;
 export interface Cookie {
   set(key: string, data: string, expires: number|Date): void;
   get(key: string): string;

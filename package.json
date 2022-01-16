@@ -1,7 +1,7 @@
 {
-  "name": "authentication-component",
-  "version": "0.0.12",
-  "description": "Authentication Component",
+  "name": "authen-client",
+  "version": "0.1.0",
+  "description": "authen-client",
   "main": "./lib/index.js",
   "types": "./src/index.ts",
   "scripts": {
@@ -17,12 +17,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com/core-ts/authentication-component"
+    "url": "git@github.com/core-ts/authen-client"
   },
   "keywords": [
     "authenticator",
     "authentication",
-    "authentication component",
-    "authentication-component"
+    "authentication client",
+    "authentication-client",
+    "authen-client",
+    "authen client"
   ]
 }
