@@ -16,7 +16,7 @@ export interface ErrorMessage {
   param?: string|number|Date;
   message?: string;
 }
-export interface AuthInfo {
+export interface User {
   step?: number;
   username: string;
   password: string;
@@ -24,15 +24,15 @@ export interface AuthInfo {
   ip?: string;
   device?: string;
 }
-export type Login = AuthInfo;
-export type User = AuthInfo;
-export interface AuthResult {
+export type Login = User;
+export type AuthInfo = User;
+export interface Result {
   status: number|string;
-  user?: UserAccount;
+  user?: Account;
   message?: string;
 }
-export type Result = AuthResult;
-export interface UserAccount {
+export type AuthResult = Result;
+export interface Account {
   id?: string;
   username?: string;
   contact?: string;
@@ -52,6 +52,7 @@ export interface UserAccount {
   gender?: string;
   imageURL?: string;
 }
+export type UserAccount = Account;
 export interface Privilege {
   id?: string;
   name: string;
@@ -61,10 +62,10 @@ export interface Privilege {
   sequence?: number;
   children?: Privilege[];
 }
-export interface AuthenService<T extends AuthInfo> {
-  authenticate(user: T): Promise<AuthResult>;
+export interface AuthenService<T extends User> {
+  authenticate(user: T): Promise<Result>;
 }
-export type AuthenticationService<T extends AuthInfo> = AuthenService<T>;
+export type AuthenticationService<T extends User> = AuthenService<T>;
 interface Headers {
   [key: string]: any;
 }
@@ -92,7 +93,7 @@ export interface OAuth2Info {
 export interface OAuth2Service {
   configurations(): Promise<Configuration[]>;
   configuration(id: string): Promise<Configuration>;
-  authenticate(auth: OAuth2Info): Promise<AuthResult>;
+  authenticate(auth: OAuth2Info): Promise<Result>;
 }
 export class OAuth2Client implements OAuth2Service {
   constructor(protected http: HttpRequest, protected url1: string, protected url2: string) {
@@ -100,8 +101,8 @@ export class OAuth2Client implements OAuth2Service {
     this.configurations = this.configurations.bind(this);
     this.configuration = this.configuration.bind(this);
   }
-  authenticate(auth: OAuth2Info): Promise<AuthResult> {
-    return this.http.post<AuthResult>(this.url1, auth);
+  authenticate(auth: OAuth2Info): Promise<Result> {
+    return this.http.post<Result>(this.url1, auth);
   }
   configurations(): Promise<Configuration[]> {
     return this.http.get<Configuration[]>(this.url2);
@@ -112,20 +113,20 @@ export class OAuth2Client implements OAuth2Service {
   }
 }
 
-export class AuthenClient<T extends AuthInfo> implements AuthenService<T> {
+export class AuthenClient<T extends User> implements AuthenService<T> {
   constructor(protected http: HttpRequest, protected url: string) {
     this.authenticate = this.authenticate.bind(this);
     this.login = this.login.bind(this);
     this.signin = this.signin.bind(this);
   }
-  login(user: T): Promise<AuthResult> {
+  login(user: T): Promise<Result> {
     return this.authenticate(user);
   }
-  signin(user: T): Promise<AuthResult> {
+  signin(user: T): Promise<Result> {
     return this.authenticate(user);
   }
-  authenticate(user: T): Promise<AuthResult> {
-    return this.http.post<AuthResult>(this.url, user).then(result => {
+  authenticate(user: T): Promise<Result> {
+    return this.http.post<Result>(this.url, user).then(result => {
       const obj = result.user;
       if (obj) {
         try {
@@ -146,6 +147,7 @@ export const LoginClient = AuthenClient;
 export const SigninClient = AuthenClient;
 export const SignInClient = AuthenClient;
 export const Authenticator = AuthenClient;
+export const BaseAuthenticator = AuthenClient;
 export interface Cookie {
   set(key: string, data: string, expires: number|Date): void;
   get(key: string): string;
@@ -162,7 +164,7 @@ export interface Encoder {
 export function isEmpty(str?: string): boolean {
   return (!str || str === '');
 }
-export function store(user?: UserAccount|null, setUser?: (u: UserAccount|null|undefined) => void, setPrivileges?: (p: Privilege[]|null|undefined) => void): void {
+export function store(user?: Account|null, setUser?: (u: Account|null|undefined) => void, setPrivileges?: (p: Privilege[]|null|undefined) => void): void {
   if (!user) {
     if (setUser) {
       setUser(null);
@@ -182,7 +184,7 @@ export function store(user?: UserAccount|null, setUser?: (u: UserAccount|null|un
   }
 }
 
-export function initFromCookie<T extends AuthInfo>(key: string, user: T, cookie: Cookie|((k: string) => string), encoder: Encoder|((v2: string) => string)): boolean {
+export function initFromCookie<T extends User>(key: string, user: T, cookie: Cookie|((k: string) => string), encoder: Encoder|((v2: string) => string)): boolean {
   let str: string;
   if (typeof cookie === 'function') {
     str = cookie(key);
@@ -214,9 +216,9 @@ export function initFromCookie<T extends AuthInfo>(key: string, user: T, cookie:
   return true;
 }
 export function addMinutes(date: Date, number: number): Date {
-  const newDate = new Date(date);
-  newDate.setMinutes(newDate.getMinutes() + number);
-  return newDate;
+  const d = new Date(date);
+  d.setMinutes(d.getMinutes() + number);
+  return d;
 }
 export function dayDiff(start?: Date, end?: Date): number|undefined {
   if (!start || !end) {
@@ -224,7 +226,7 @@ export function dayDiff(start?: Date, end?: Date): number|undefined {
   }
   return Math.floor(Math.abs((start.getTime() - end.getTime()) / 86400000));
 }
-export function handleCookie<T extends AuthInfo>(key: string, user: T, remember: boolean, cookie: Cookie, expiresMinutes: number, encoder: Encoder|((v2: string) => string)) {
+export function handleCookie<T extends User>(key: string, user: T, remember: boolean, cookie: Cookie, expiresMinutes: number, encoder: Encoder|((v2: string) => string)) {
   if (remember === true) {
     const data: any = {
       username: user.username,
@@ -246,7 +248,7 @@ export function handleCookie<T extends AuthInfo>(key: string, user: T, remember:
 export function createError(code: string, field: string, message: string): ErrorMessage {
   return { code, field, message };
 }
-export function validate<T extends AuthInfo>(user: T, r: ResourceService, showError?: (m: string, field?: string) => void): boolean|ErrorMessage[] {
+export function validate<T extends User>(user: T, r: ResourceService, showError?: (m: string, field?: string) => void): boolean|ErrorMessage[] {
   if (showError) {
     if (isEmpty(user.username)) {
       const m1 = r.format(r.value('error_required'), r.value('username'));
