@@ -187,10 +187,12 @@ export function store(user?: Account|null, setUser?: (u: Account|null|undefined)
     if (setUser) {
       setUser(user);
     }
-    const forms = user.hasOwnProperty('privileges') ? user.privileges : null;
-    if (forms && forms.length !== 0 && setPrivileges) {
-      setPrivileges(null);
-      setPrivileges(forms);
+    if (setPrivileges) {
+      const forms = user.hasOwnProperty('privileges') ? user.privileges : null;
+      if (forms && forms.length !== 0) {
+        setPrivileges(null);
+        setPrivileges(forms);
+      }
     }
   }
 }
