@@ -90,6 +90,17 @@ export interface OAuth2Info {
   invitationMail?: string;
   link?: boolean;
 }
+export interface PrivilegesService {
+  getPrivileges(): Promise<Privilege[]>
+}
+export class PrivilegesClient implements PrivilegesService {
+  constructor(protected http: HttpRequest, protected url: string) {
+    this.getPrivileges = this.getPrivileges.bind(this)
+  }
+  getPrivileges(): Promise<Privilege[]> {
+    return this.http.get<Privilege[]>(this.url)
+  }
+}
 export interface OAuth2Service {
   configurations(): Promise<Configuration[]>;
   configuration(id: string): Promise<Configuration>;
