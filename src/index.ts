@@ -319,10 +319,7 @@ export function validate<T extends User>(user: T, r: StringMap, showError?: (m: 
     return errs;
   }
 }
-export interface MessageMap {
-  [key: string]: string;
-}
-export function getMessage(status: number|string, r: MessageMap, map?: MessageMap): string {
+export function getMessage(status: number|string, r: StringMap, map?: StringMap): string {
   if (!map) {
     return r['fail_authentication'];
   }
