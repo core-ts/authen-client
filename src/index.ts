@@ -261,18 +261,40 @@ export function handleCookie<T extends User>(key: string, user: T, remember: boo
 export function createError(code: string, field: string, message: string): ErrorMessage {
   return { code, field, message };
 }
-export function validate<T extends User>(user: T, r: ResourceService, showError?: (m: string, field?: string) => void): boolean|ErrorMessage[] {
+interface StringMap {
+  [key: string]: string
+}
+function formatText(...args: any[]): string {
+  let formatted = args[0]
+  if (!formatted || formatted === "") {
+    return ""
+  }
+  if (args.length > 1 && Array.isArray(args[1])) {
+    const params = args[1]
+    for (let i = 0; i < params.length; i++) {
+      const regexp = new RegExp("\\{" + i + "\\}", "gi")
+      formatted = formatted.replace(regexp, params[i])
+    }
+  } else {
+    for (let i = 1; i < args.length; i++) {
+      const regexp = new RegExp("\\{" + (i - 1) + "\\}", "gi")
+      formatted = formatted.replace(regexp, args[i])
+    }
+  }
+  return formatted
+}
+export function validate<T extends User>(user: T, r: StringMap, showError?: (m: string, field?: string) => void): boolean|ErrorMessage[] {
   if (showError) {
     if (isEmpty(user.username)) {
-      const m1 = r.format(r.value('error_required'), r.value('username'));
+      const m1 = formatText(r.error_required, r.username);
       showError(m1, 'username');
       return false;
     } else if (isEmpty(user.password)) {
-      const m1 = r.format(r.value('error_required'), r.value('password'));
+      const m1 = formatText(r.error_required, r.password);
       showError(m1, 'password');
       return false;
     } else if (user.step && isEmpty(user.passcode)) {
-      const m1 = r.format(r.value('error_required'), r.value('passcode'));
+      const m1 = formatText(r.error_required, r.passcode);
       showError(m1, 'passcode');
       return false;
     }
@@ -280,17 +302,17 @@ export function validate<T extends User>(user: T, r: ResourceService, showError?
   } else {
     const errs: ErrorMessage[] = [];
     if (isEmpty(user.username)) {
-      const m1 = r.format(r.value('error_required'), r.value('username'));
+      const m1 = formatText(r.error_required, r.username);
       const e = createError('required', 'username', m1);
       errs.push(e);
     }
     if (isEmpty(user.password)) {
-      const m1 = r.format(r.value('error_required'), r.value('password'));
+      const m1 = formatText(r.error_required, r.password);
       const e = createError('required', 'password', m1);
       errs.push(e);
     }
     if (user.step && isEmpty(user.passcode)) {
-      const m1 = r.format(r.value('error_required'), r.value('passcode'));
+      const m1 = formatText(r.error_required, r.passcode);
       const e = createError('required', 'passcode', m1);
       errs.push(e);
     }
