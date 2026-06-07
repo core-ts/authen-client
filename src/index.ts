@@ -40,7 +40,7 @@ export interface Account {
   email?: string;
   phone?: string;
   displayName?: string;
-  // passwordExpiredTime?: Date;
+  passwordExpiredTime?: Date;
   // token?: string;
   // tokenExpiredTime?: Date;
   // newUser?: boolean;
@@ -138,7 +138,17 @@ export class AuthenClient<T extends User> implements AuthenService<T> {
     return this.authenticate(user);
   }
   authenticate(user: T): Promise<Result> {
-    return this.http.post<Result>(this.url, user);
+    return this.http.post<Result>(this.url, user).then(result => {
+      const obj = result.user;
+      if (obj) {
+        try {
+          if (obj.passwordExpiredTime) {
+            obj.passwordExpiredTime = new Date(obj.passwordExpiredTime);
+          }
+        } catch (err) {}
+      }
+      return result;
+    });
   }
 }
 export const AuthenticationClient = AuthenClient;
