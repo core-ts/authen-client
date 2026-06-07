@@ -30,6 +30,7 @@ export interface Result {
   status: number|string;
   user?: Account;
   message?: string;
+  token?: string
 }
 export type AuthResult = Result;
 export interface Account {
@@ -39,11 +40,11 @@ export interface Account {
   email?: string;
   phone?: string;
   displayName?: string;
-  passwordExpiredTime?: Date;
-  token?: string;
-  tokenExpiredTime?: Date;
-  newUser?: boolean;
-  userType?: string;
+  // passwordExpiredTime?: Date;
+  // token?: string;
+  // tokenExpiredTime?: Date;
+  // newUser?: boolean;
+  // userType?: string;
   roles?: string[];
   privileges?: Privilege[];
   language?: string;
@@ -137,20 +138,7 @@ export class AuthenClient<T extends User> implements AuthenService<T> {
     return this.authenticate(user);
   }
   authenticate(user: T): Promise<Result> {
-    return this.http.post<Result>(this.url, user).then(result => {
-      const obj = result.user;
-      if (obj) {
-        try {
-          if (obj.passwordExpiredTime) {
-            obj.passwordExpiredTime = new Date(obj.passwordExpiredTime);
-          }
-          if (obj.tokenExpiredTime) {
-            obj.tokenExpiredTime = new Date(obj.tokenExpiredTime);
-          }
-        } catch (err) {}
-      }
-      return result;
-    });
+    return this.http.post<Result>(this.url, user);
   }
 }
 export const AuthenticationClient = AuthenClient;
